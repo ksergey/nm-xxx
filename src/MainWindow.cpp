@@ -37,7 +37,7 @@ void MainWindow::startDBus() {
 
         proxy_->call("GetDevices", [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
           if (!result) {
-            fmt::print(stderr, "failed to get devices");
+            fmt::print(stderr, "GetDevices failed\n");
             return;
           }
 
@@ -53,22 +53,32 @@ void MainWindow::startDBus() {
 void MainWindow::onDeviceFound(Glib::DBusObjectPathString const& objectPath) {
   fmt::print("device found: {}\n", objectPath.c_str());
 
-  Gio::DBus::Proxy::create(connection_, "org.freedesktop.NetworkManager", objectPath,
-      "org.freedesktop.NetworkManager.AccessPoint", [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
+  Gio::DBus::Proxy::create(connection_, "org.freedesktop.NetworkManager", objectPath, "org.freedesktop.NetworkManager",
+      [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
         if (!result) {
           fmt::print(stderr, "failed to get AccessPoint");
           return;
         }
 
         auto proxy = Gio::DBus::Proxy::create_finish(result);
-
-        for (auto const& propertyName : proxy->get_cached_property_names()) {
-          fmt::print("property: {}\n", propertyName.c_str());
-
-          Glib::VariantBase property;
-          proxy->get_cached_property(property, propertyName);
-          fmt::print(" -> {}\n", property.print(true).c_str());
+        fmt::print("get_name: \"{}\"\n", proxy->get_name().c_str());
+        fmt::print("get_name_owner: \"{}\"\n", proxy->get_name_owner().c_str());
+        fmt::print("get_object_path: \"{}\"\n", proxy->get_object_path().c_str());
+        fmt::print("get_interface_name: \"{}\"\n", proxy->get_interface_name().c_str());
+        for (auto const& value : proxy->get_cached_property_names()) {
+          fmt::print("  property: \"{}\"\n", value.c_str());
         }
+
+        // proxy->call("GetAccessPoints", [this, proxy](Glib::RefPtr<Gio::AsyncResult> const& result) {
+        //   fmt::print(stderr, "GetAccessPoints failed\n");
+        //   return;
+
+        //   Glib::Variant<std::vector<Glib::DBusObjectPathString>> data;
+        //   proxy_->call_finish(result).get_child(data);
+        //   for (Glib::DBusObjectPathString const& path : data.get()) {
+        //     fmt::print("Access Point \"{}\" ({})\n", path.c_str(), proxy->get_name().c_str());
+        //   }
+        // });
       });
 
   // proxy_->call()
