@@ -9,9 +9,15 @@
 
 namespace app {
 
-MainWindow::MainWindow(Glib::RefPtr<Gio::DBus::Connection> connection) : connection_(connection) {
+MainWindow::MainWindow() {
   this->setupUI();
   this->startDBus();
+}
+
+MainWindow::~MainWindow() noexcept {
+  if (watcherID_ > 0) {
+    Gio::DBus::unwatch_name(watcherID_);
+  }
 }
 
 void MainWindow::setupUI() {
@@ -23,65 +29,64 @@ void MainWindow::setupUI() {
 }
 
 void MainWindow::startDBus() {
-  if (not connection_) {
-    connection_ = Gio::DBus::Connection::get_sync(Gio::DBus::BusType::SYSTEM, Gio::Cancellable::create());
-    if (not connection_) [[unlikely]] {
-      throw std::runtime_error("failed to connect to dbus");
-    }
-  }
-
-  Gio::DBus::Proxy::create(connection_, "org.freedesktop.NetworkManager", "/org/freedesktop/NetworkManager",
-      "org.freedesktop.NetworkManager", [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
-        proxy_ = Gio::DBus::Proxy::create_finish(result);
-        fmt::print("proxy created\n");
-
-        proxy_->call("GetDevices", [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
-          if (!result) {
-            fmt::print(stderr, "GetDevices failed\n");
-            return;
-          }
-
-          Glib::Variant<std::vector<Glib::DBusObjectPathString>> data;
-          proxy_->call_finish(result).get_child(data);
-          for (Glib::DBusObjectPathString const& path : data.get()) {
-            this->onDeviceFound(path);
-          }
-        });
+  watcherID_ = Gio::DBus::watch_name(
+      Gio::DBus::BusType::SYSTEM, "org.freedesktop.NetworkManager",
+      [this](Glib::RefPtr<Gio::DBus::Connection> const& connection, [[maybe_unused]] Glib::ustring name,
+          [[maybe_unused]] Glib::ustring const& nameOwner) {
+        connection_ = connection;
+        this->doGetDevices();
+      },
+      [this](
+          [[maybe_unused]] Glib::RefPtr<Gio::DBus::Connection> const& connection, [[maybe_unused]] Glib::ustring name) {
+        connection_ = nullptr;
       });
 }
 
-void MainWindow::onDeviceFound(Glib::DBusObjectPathString const& objectPath) {
-  fmt::print("device found: {}\n", objectPath.c_str());
+void MainWindow::doGetDevices() {
+  assert(connection_);
 
-  Gio::DBus::Proxy::create(connection_, "org.freedesktop.NetworkManager", objectPath, "org.freedesktop.NetworkManager",
+  connection_->call(
+      "/org/freedesktop/NetworkManager", "org.freedesktop.NetworkManager", "GetDevices", {},
       [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
-        if (!result) {
-          fmt::print(stderr, "failed to get AccessPoint");
+        if (not result) {
+          fmt::print(stderr, "unable to call GetDevices");
           return;
         }
 
-        auto proxy = Gio::DBus::Proxy::create_finish(result);
-        fmt::print("get_name: \"{}\"\n", proxy->get_name().c_str());
-        fmt::print("get_name_owner: \"{}\"\n", proxy->get_name_owner().c_str());
-        fmt::print("get_object_path: \"{}\"\n", proxy->get_object_path().c_str());
-        fmt::print("get_interface_name: \"{}\"\n", proxy->get_interface_name().c_str());
-        for (auto const& value : proxy->get_cached_property_names()) {
-          fmt::print("  property: \"{}\"\n", value.c_str());
+        auto data = connection_->call_finish(result);
+        Glib::Variant<std::vector<Glib::DBusObjectPathString>> devices;
+        data.get_child(devices);
+
+        for (auto const& device : devices.get()) {
+          this->doGetDeviceProperties(device);
+        }
+      },
+      "org.freedesktop.NetworkManager");
+}
+
+void MainWindow::doGetDeviceProperties(Glib::DBusObjectPathString const& device) {
+  connection_->call(
+      device, "org.freedesktop.DBus.Properties", "GetAll",
+      Glib::VariantContainerBase::create_tuple(
+          Glib::create_variant<Glib::ustring>("org.freedesktop.NetworkManager.Device")),
+      [this](Glib::RefPtr<Gio::AsyncResult> const& result) {
+        if (not result) {
+          fmt::print(stderr, "unable to call Get");
+          return;
         }
 
-        // proxy->call("GetAccessPoints", [this, proxy](Glib::RefPtr<Gio::AsyncResult> const& result) {
-        //   fmt::print(stderr, "GetAccessPoints failed\n");
-        //   return;
+        auto data = connection_->call_finish(result);
 
-        //   Glib::Variant<std::vector<Glib::DBusObjectPathString>> data;
-        //   proxy_->call_finish(result).get_child(data);
-        //   for (Glib::DBusObjectPathString const& path : data.get()) {
-        //     fmt::print("Access Point \"{}\" ({})\n", path.c_str(), proxy->get_name().c_str());
-        //   }
-        // });
-      });
+        fmt::print("done: {}\n", data.print(true).c_str());
 
-  // proxy_->call()
+        // Glib::Variant<std::vector<Glib::DBusObjectPathString>> devices;
+        // data.get_child(devices);
+
+        // for (auto const& device : devices.get()) {
+        //   fmt::print("device: {}\n", device.c_str());
+        // }
+      },
+      "org.freedesktop.NetworkManager");
 }
 
 } // namespace app

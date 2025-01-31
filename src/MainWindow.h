@@ -10,21 +10,22 @@ namespace app {
 class MainWindow : public Gtk::Window {
 private:
   Gtk::Box vbox_;
-
+  guint watcherID_ = 0;
   Glib::RefPtr<Gio::DBus::Connection> connection_;
-  Glib::RefPtr<Gio::DBus::Proxy> proxy_;
 
 public:
   MainWindow(MainWindow const&) = delete;
   MainWindow& operator=(MainWindow const&) = delete;
 
-  MainWindow(Glib::RefPtr<Gio::DBus::Connection> connection = nullptr);
+  MainWindow();
+  ~MainWindow() noexcept;
 
 private:
   void setupUI();
   void startDBus();
 
-  void onDeviceFound(Glib::DBusObjectPathString const& objectPath);
+  void doGetDevices();
+  void doGetDeviceProperties(Glib::DBusObjectPathString const& device);
 };
 
 } // namespace app
