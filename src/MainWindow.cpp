@@ -3,6 +3,8 @@
 
 #include "MainWindow.h"
 
+#include <fmt/format.h>
+
 namespace app {
 
 MainWindow::MainWindow() {
@@ -24,6 +26,12 @@ MainWindow::~MainWindow() noexcept {}
 
 void MainWindow::onNetworkManagerAppeared() {
   label_.set_text("Network Manager appeared");
+
+  nm_.getDevices([this](std::span<Glib::DBusObjectPathString const> devices) {
+    for (auto const& path : devices) {
+      fmt::print(stdout, "found device: {}\n", path.c_str());
+    }
+  });
 }
 
 void MainWindow::onNetworkManagerVanished() {

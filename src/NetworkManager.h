@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <span>
+
 #include <giomm/dbusconnection.h>
 #include <sigc++/sigc++.h>
 
@@ -32,6 +34,8 @@ public:
   [[nodiscard]] sigc::signal<void()>& signalVanished() noexcept {
     return signalVanished_;
   }
+
+  void getDevices(sigc::slot<void(std::span<Glib::DBusObjectPathString const>)> callback);
 };
 
 } // namespace app
