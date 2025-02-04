@@ -36,6 +36,8 @@ public:
   }
 
   void getDevices(sigc::slot<void(std::span<Glib::DBusObjectPathString const>)> callback);
+  void getDeviceProperties(Glib::DBusObjectPathString const& devicePath,
+      sigc::slot<void(std::map<Glib::ustring, Glib::VariantBase> const&)> callback);
 };
 
 } // namespace app

@@ -26,6 +26,7 @@ public:
 private:
   void onNetworkManagerAppeared();
   void onNetworkManagerVanished();
+  void onDeviceFound(Glib::DBusObjectPathString const& devicePath);
 };
 
 } // namespace app

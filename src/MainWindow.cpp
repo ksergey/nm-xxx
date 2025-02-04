@@ -29,13 +29,22 @@ void MainWindow::onNetworkManagerAppeared() {
 
   nm_.getDevices([this](std::span<Glib::DBusObjectPathString const> devices) {
     for (auto const& path : devices) {
-      fmt::print(stdout, "found device: {}\n", path.c_str());
+      onDeviceFound(path);
     }
   });
 }
 
 void MainWindow::onNetworkManagerVanished() {
   label_.set_text("Network Manager vanished");
+}
+
+void MainWindow::onDeviceFound(Glib::DBusObjectPathString const& devicePath) {
+  nm_.getDeviceProperties(devicePath, [this, devicePath](std::map<Glib::ustring, Glib::VariantBase> const& properties) {
+    fmt::print(stdout, "found device: {}\n", devicePath.c_str());
+    for (auto const& [property, value] : properties) {
+      fmt::print(stdout, "  {} = {} \"{}\"\n", property.c_str(), value.print(true).c_str(), value.get_type_string());
+    }
+  });
 }
 
 } // namespace app
