@@ -45,6 +45,33 @@ enum NetworkManagerDeviceType : std::uint32_t {
   NM_DEVICE_TYPE_VRF = 31
 };
 
+class NetworkManagerDeviceWireless : public sigc::trackable {
+private:
+  Glib::RefPtr<Gio::DBus::Connection> connection_;
+  Glib::DBusObjectPathString path_;
+  std::map<Glib::ustring, Glib::VariantBase> properties_;
+
+public:
+  NetworkManagerDeviceWireless(NetworkManagerDeviceWireless const&) = default;
+  NetworkManagerDeviceWireless& operator=(NetworkManagerDeviceWireless const&) = default;
+  NetworkManagerDeviceWireless(NetworkManagerDeviceWireless&&) = default;
+  NetworkManagerDeviceWireless& operator=(NetworkManagerDeviceWireless&&) = default;
+  NetworkManagerDeviceWireless() = default;
+
+  NetworkManagerDeviceWireless(Glib::RefPtr<Gio::DBus::Connection> connection, Glib::DBusObjectPathString path,
+      std::map<Glib::ustring, Glib::VariantBase> properties);
+
+  /// Device object path
+  [[nodiscard]] Glib::DBusObjectPathString const& path() const noexcept {
+    return path_;
+  }
+
+  /// All available properties
+  [[nodiscard]] std::map<Glib::ustring, Glib::VariantBase> const& properties() const noexcept {
+    return properties_;
+  }
+};
+
 class NetworkManagerDevice : public sigc::trackable {
 private:
   Glib::RefPtr<Gio::DBus::Connection> connection_;
@@ -76,6 +103,9 @@ public:
   [[nodiscard]] NetworkManagerDeviceType deviceType() const noexcept {
     return deviceType_;
   }
+
+  /// Get device as wireless device
+  void getWirelessDevice(sigc::slot<void(NetworkManagerDeviceWireless device)> callback);
 };
 
 class NetworkManager : public sigc::trackable {

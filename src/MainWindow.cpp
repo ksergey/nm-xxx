@@ -48,6 +48,8 @@ void MainWindow::onDeviceFound(Glib::DBusObjectPathString const& devicePath) {
     for (auto const& [property, value] : device.properties()) {
       fmt::print(stdout, "  {} = {} \"{}\"\n", property.c_str(), value.print(true).c_str(), value.get_type_string());
     }
+
+    // device.getWirelessDevice([this](NetworkManagerDeviceWireless device) {});
   });
 }
 

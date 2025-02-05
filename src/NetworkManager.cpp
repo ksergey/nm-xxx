@@ -24,12 +24,37 @@ Glib::Variant<T> variant_cast(Glib::VariantBase const& value) {
   return Glib::VariantBase::cast_dynamic<Glib::Variant<T>>(value);
 }
 
+NetworkManagerDeviceWireless::NetworkManagerDeviceWireless(Glib::RefPtr<Gio::DBus::Connection> connection,
+    Glib::DBusObjectPathString path, std::map<Glib::ustring, Glib::VariantBase> properties)
+    : connection_(std::move(connection)), path_(std::move(path)), properties_(std::move(properties)) {}
+
 NetworkManagerDevice::NetworkManagerDevice(Glib::RefPtr<Gio::DBus::Connection> connection,
     Glib::DBusObjectPathString path, std::map<Glib::ustring, Glib::VariantBase> properties)
     : connection_(std::move(connection)), path_(std::move(path)), properties_(std::move(properties)) {
   if (auto const found = properties_.find("DeviceType"); found != properties_.end()) {
     deviceType_ = static_cast<NetworkManagerDeviceType>(variant_cast<std::uint32_t>(found->second).get());
   }
+}
+
+void NetworkManagerDevice::getWirelessDevice(sigc::slot<void(NetworkManagerDeviceWireless device)> callback) {
+  connection_->call(
+      path_, "org.freedesktop.DBus.Properties", "GetAll",
+      params(Glib::ustring("org.freedesktop.NetworkManager.Device.Wireless")),
+      [this, callback](Glib::RefPtr<Gio::AsyncResult> const& result) {
+        if (not result) {
+          fmt::print(stderr, "unable to call GetAll");
+          return;
+        }
+
+        auto data = connection_->call_finish(result);
+        if (!data.is_of_type(Glib::VariantType("(a{sv})"))) {
+          return fmt::print(stderr, "invalid result type for GetAll call");
+        }
+
+        callback(NetworkManagerDeviceWireless(
+            connection_, path_, variant_cast<std::map<Glib::ustring, Glib::VariantBase>>(data.get_child(0)).get()));
+      },
+      "org.freedesktop.NetworkManager");
 }
 
 NetworkManager::NetworkManager() {
