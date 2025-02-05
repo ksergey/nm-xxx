@@ -26,7 +26,11 @@ Glib::Variant<T> variant_cast(Glib::VariantBase const& value) {
 
 NetworkManagerDevice::NetworkManagerDevice(Glib::RefPtr<Gio::DBus::Connection> connection,
     Glib::DBusObjectPathString path, std::map<Glib::ustring, Glib::VariantBase> properties)
-    : connection_(std::move(connection)), path_(std::move(path)), properties_(std::move(properties)) {}
+    : connection_(std::move(connection)), path_(std::move(path)), properties_(std::move(properties)) {
+  if (auto const found = properties_.find("DeviceType"); found != properties_.end()) {
+    deviceType_ = static_cast<NetworkManagerDeviceType>(variant_cast<std::uint32_t>(found->second).get());
+  }
+}
 
 NetworkManager::NetworkManager() {
   watcherID_ = Gio::DBus::watch_name(
@@ -86,9 +90,6 @@ void NetworkManager::getDevice(
         if (!data.is_of_type(Glib::VariantType("(a{sv})"))) {
           return fmt::print(stderr, "invalid result type for GetAll call");
         }
-
-        // NetworkManagerDevice device(connection_, std::move(devicePath),
-        //     variant_cast<std::map<Glib::ustring, Glib::VariantBase>>(data.get_child(0)).get());
 
         callback(NetworkManagerDevice(connection_, std::move(devicePath),
             variant_cast<std::map<Glib::ustring, Glib::VariantBase>>(data.get_child(0)).get()));

@@ -40,11 +40,14 @@ void MainWindow::onNetworkManagerVanished() {
 
 void MainWindow::onDeviceFound(Glib::DBusObjectPathString const& devicePath) {
   nm_.getDevice(devicePath, [this](NetworkManagerDevice device) {
-    fmt::print(stdout, "found device: {}\n", device.path().c_str());
+    if (device.deviceType() != NetworkManagerDeviceType::NM_DEVICE_TYPE_WIFI) {
+      return;
+    }
 
-    // for (auto const& [property, value] : properties) {
-    //   fmt::print(stdout, "  {} = {} \"{}\"\n", property.c_str(), value.print(true).c_str(), value.get_type_string());
-    // }
+    fmt::print(stdout, "found device: {}\n", device.path().c_str());
+    for (auto const& [property, value] : device.properties()) {
+      fmt::print(stdout, "  {} = {} \"{}\"\n", property.c_str(), value.print(true).c_str(), value.get_type_string());
+    }
   });
 }
 
