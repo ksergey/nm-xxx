@@ -39,11 +39,12 @@ void MainWindow::onNetworkManagerVanished() {
 }
 
 void MainWindow::onDeviceFound(Glib::DBusObjectPathString const& devicePath) {
-  nm_.getDeviceProperties(devicePath, [this, devicePath](std::map<Glib::ustring, Glib::VariantBase> const& properties) {
-    fmt::print(stdout, "found device: {}\n", devicePath.c_str());
-    for (auto const& [property, value] : properties) {
-      fmt::print(stdout, "  {} = {} \"{}\"\n", property.c_str(), value.print(true).c_str(), value.get_type_string());
-    }
+  nm_.getDevice(devicePath, [this](NetworkManagerDevice device) {
+    fmt::print(stdout, "found device: {}\n", device.path().c_str());
+
+    // for (auto const& [property, value] : properties) {
+    //   fmt::print(stdout, "  {} = {} \"{}\"\n", property.c_str(), value.print(true).c_str(), value.get_type_string());
+    // }
   });
 }
 

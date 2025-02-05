@@ -24,6 +24,10 @@ Glib::Variant<T> variant_cast(Glib::VariantBase const& value) {
   return Glib::VariantBase::cast_dynamic<Glib::Variant<T>>(value);
 }
 
+NetworkManagerDevice::NetworkManagerDevice(Glib::RefPtr<Gio::DBus::Connection> connection,
+    Glib::DBusObjectPathString path, std::map<Glib::ustring, Glib::VariantBase> properties)
+    : connection_(std::move(connection)), path_(std::move(path)), properties_(std::move(properties)) {}
+
 NetworkManager::NetworkManager() {
   watcherID_ = Gio::DBus::watch_name(
       Gio::DBus::BusType::SYSTEM, "org.freedesktop.NetworkManager",
@@ -66,27 +70,28 @@ void NetworkManager::getDevices(sigc::slot<void(std::span<Glib::DBusObjectPathSt
       "org.freedesktop.NetworkManager");
 }
 
-void NetworkManager::getDeviceProperties(Glib::DBusObjectPathString const& devicePath,
-    sigc::slot<void(std::map<Glib::ustring, Glib::VariantBase> const&)> callback) {
-  fmt::print(stdout, "getDeviceProperties = {}\n", devicePath.c_str());
+void NetworkManager::getDevice(
+    Glib::DBusObjectPathString const& devicePath, sigc::slot<void(NetworkManagerDevice device)> callback) {
 
   connection_->call(
       devicePath, "org.freedesktop.DBus.Properties", "GetAll",
       params(Glib::ustring("org.freedesktop.NetworkManager.Device")),
-      [this, callback](Glib::RefPtr<Gio::AsyncResult> const& result) {
+      [this, devicePath, callback](Glib::RefPtr<Gio::AsyncResult> const& result) {
         if (not result) {
           fmt::print(stderr, "unable to call GetAll");
           return;
         }
 
         auto data = connection_->call_finish(result);
-        fmt::print("data = {}\n", data.get_type_string());
         if (!data.is_of_type(Glib::VariantType("(a{sv})"))) {
           return fmt::print(stderr, "invalid result type for GetAll call");
         }
 
-        auto const& properties = variant_cast<std::map<Glib::ustring, Glib::VariantBase>>(data.get_child(0)).get();
-        callback(properties);
+        // NetworkManagerDevice device(connection_, std::move(devicePath),
+        //     variant_cast<std::map<Glib::ustring, Glib::VariantBase>>(data.get_child(0)).get());
+
+        callback(NetworkManagerDevice(connection_, std::move(devicePath),
+            variant_cast<std::map<Glib::ustring, Glib::VariantBase>>(data.get_child(0)).get()));
       },
       "org.freedesktop.NetworkManager");
 }
